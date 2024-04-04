@@ -15,7 +15,7 @@ if __name__ == '__main__':
     plt.rcParams.update({'font.size': 16})
 
     leak = 0.3 # Base rate of application of lindblad operator
-    N = 20 # Number of network nodes
+    N = 10 # Number of network nodes
     J = 0.02 # Base coherent coupling constant
     sigma = 0.02 # Base disorder strength
     sigmaMod = [2.0, 1.5, 1.0, 0.5, 0.25] # sweep over disorder strength
