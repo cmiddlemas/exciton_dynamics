@@ -116,7 +116,7 @@ class ParameterSweep:
         Parameters:
         G = nx.graph
         c_op = np.array of Qobj
-        sigma = np.array
+        sigma = np.array of \sigma/J
         J = np.array
         rate = np.array
         n_samp = int
@@ -172,11 +172,11 @@ class ParameterSweep:
                 H = diagonal_H(n_H-1) - coup*C
                 
                 for k, gamma in enumerate(self.rate):
-                    scaled_c_op = np.sqrt(gamma)*self.c_op
+                    scaled_c_op = np.sqrt(gamma*coup)*self.c_op
                     l_null_acc = []
                     
                     for m in range(self.n_samp):
-                        H_perturb = H + diagonal_disorder(n_H-1, sig, rng=self.rng)
+                        H_perturb = H + diagonal_disorder(n_H-1, sig*coup, rng=self.rng)
                 
                         # Do an eigendecomposition on H
                         self.h_eigvals[i, j, k, n_H*m:n_H*(m+1)] = \
@@ -215,9 +215,18 @@ class ParameterSweep:
         for i, coup in enumerate(self.J):
             for j, gamma in enumerate(self.rate):
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
-                label=["$\sigma/J =$ " + "{:3g}".format(x/coup) for x in self.sigma]
+                label=["$\sigma/J =$ " + "{:3g}".format(x) for x in self.sigma]
+                # If this errors, see here
+                # https://github.com/numpy/numpy/issues/11879
+                # https://github.com/numpy/numpy/issues/10297
+                # The easiest fix is to slightly increase sigma
                 ax1.hist(self.h_eigvals[:,i,j,:].transpose(), 'auto',
                         density=True, histtype='step', label=label)
+
+                # https://stackoverflow.com/questions/10984085/
+                # automatically-rescale-ylim-and-xlim
+                ax1.relim()
+                ax1.autoscale_view()
 
                 ax1.set_title("Hamiltonian Spectrum")
                 ax1.set_xlabel(r'$E$')
@@ -235,17 +244,103 @@ class ParameterSweep:
                 if fname_root is not None:
                     fig.savefig(fname_root + '_J' + str(coup) + '_rate' +
                             str(gamma) + '.png')
-                
-                fig_list += [fig]
+                    plt.close(fig)
+                else:
+                    fig_list += [fig]
 
         return fig_list
 
 
     def make_J_fig(self, fname_root=None):
-        return
+        """
+        Makes eigvalue plots that directly reveals variation over coupling
+        strength
+        """
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams.update({'font.size': 16})
+
+        fig_list = []
+
+        for i, sig in enumerate(self.sigma):
+            for j, gamma in enumerate(self.rate):
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
+                label=["$J=$ " + "{:3g}".format(x) for x in self.J]
+                ax1.hist(self.h_eigvals[i,:,j,:].transpose(), 'auto',
+                        density=True, histtype='step', label=label)
+                
+                ax1.relim()
+                ax1.autoscale_view()
+
+                ax1.set_title("Hamiltonian Spectrum")
+                ax1.set_xlabel(r'$E$')
+                ax1.set_ylabel(r'$\sigma(E)$')
+                ax1.legend(loc = 'upper left')
+
+                for l in self.l_eigvals[i,:,j,:]:
+                    ax2.scatter(np.real(l), np.imag(l), s=2)
+                    ax2.set_title("Liouvillian Spectrum")
+                    ax2.set_xlabel(r'Re$(\lambda)$')
+                    ax2.set_ylabel(r'Im$(\lambda)$')
+
+                fig.tight_layout()
+
+                if fname_root is not None:
+                    fig.savefig(fname_root + '_sigma' + str(sig) + '_rate' +
+                            str(gamma) + '.png')
+                    plt.close(fig)
+                else:
+                    fig_list += [fig]
+
+        return fig_list
+
 
     def make_rate_fig(self, fname_root=None):
-        return
+        """
+        Makes eigvalue plots that directly reveals variation over dissipation
+        rate
+        """
+        plt.rcParams['text.usetex'] = True
+        # https://stackoverflow.com/questions/3899980/
+        # how-to-change-the-font-size-on-a-matplotlib-plot
+        plt.rcParams.update({'font.size': 16})
+        # https://matplotlib.org/stable/gallery/
+        # lines_bars_and_markers/errorbar_subsample.html
+        # #sphx-glr-gallery-lines-bars-and-markers-errorbar-subsample-py
+
+        fig_list = []
+
+        for i, sig in enumerate(self.sigma):
+            for j, coup in enumerate(self.J):
+                fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
+                label=["$\gamma/J =$ " + "{:3g}".format(x) for x in self.rate]
+                ax1.hist(self.h_eigvals[i,j,:,:].transpose(), 'auto',
+                        density=True, histtype='step', label=label)
+                
+                ax1.relim()
+                ax1.autoscale_view()
+
+                ax1.set_title("Hamiltonian Spectrum")
+                ax1.set_xlabel(r'$E$')
+                ax1.set_ylabel(r'$\sigma(E)$')
+                ax1.legend(loc = 'upper left')
+
+                for l in self.l_eigvals[i,j,:,:]:
+                    ax2.scatter(np.real(l), np.imag(l), s=2)
+                    ax2.set_title("Liouvillian Spectrum")
+                    ax2.set_xlabel(r'Re$(\lambda)$')
+                    ax2.set_ylabel(r'Im$(\lambda)$')
+
+                fig.tight_layout()
+
+                if fname_root is not None:
+                    fig.savefig(fname_root + '_sigma' + str(sig) + '_J' +
+                            str(coup) + '.png')
+                    plt.close(fig)
+                else:
+                    fig_list += [fig]
+
+        return fig_list
+
 
     def save_file(self, fname):
         """
