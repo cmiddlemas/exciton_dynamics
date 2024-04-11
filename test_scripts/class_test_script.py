@@ -10,7 +10,7 @@ import networkx as nx
 import scipy as sp
 
 if __name__ == '__main__':
-    leak = np.array([1.0, 0.1]) # Rate of application of lindblad operator
+    leak = np.array([10.0, 1.0, 0.1]) # Rate of application of lindblad operator
     N = 10 # Number of network nodes
     J = np.array([0.1, 0.02]) # Coherent coupling constant
     # sweep over disorder strength

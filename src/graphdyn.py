@@ -18,7 +18,7 @@ import networkx as nx
 import scipy as sp
 
 #-------------------------------------------------------------------------------
-# Helper functions for creating Hamiltonians and collaps operators
+# Helper functions for creating Hamiltonians and collapse operators
 #-------------------------------------------------------------------------------
 
 def lowering_L(n, i):
@@ -242,8 +242,8 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_J' + str(coup) + '_rate' +
-                            str(gamma) + '.png')
+                    fig.savefig(fname_root + '_sweepSigma'+ '_J' + str(coup) +
+                            '_rate' + str(gamma) + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]
@@ -285,8 +285,8 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_sigma' + str(sig) + '_rate' +
-                            str(gamma) + '.png')
+                    fig.savefig(fname_root + '_sweepJ' + '_sigma' + str(sig) +
+                            '_rate' + str(gamma) + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]
@@ -333,8 +333,8 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_sigma' + str(sig) + '_J' +
-                            str(coup) + '.png')
+                    fig.savefig(fname_root + '_sweepRate' + '_sigma' + str(sig)
+                            + '_J' + str(coup) + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]
