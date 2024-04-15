@@ -14,8 +14,8 @@ if __name__ == '__main__':
     # https://stackoverflow.com/questions/415511/how-do-i-get-the-current-time-in-python
     print(datetime.datetime.now())
     leak = np.array([10.0, 1.0, 0.1]) # Rate of application of lindblad operator
-    N = 64 # Number of network nodes
-    J = np.array([0.02, 0.002]) # Coherent coupling constant
+    N = 10 # Number of network nodes
+    J = np.array([0.2, 0.02]) # Coherent coupling constant
     # sweep over disorder strength
     sigmaList = np.array([2.0, 1.5, 1.0, 0.5, 0.25, 0.05, 0.001])
     n_samp = 5

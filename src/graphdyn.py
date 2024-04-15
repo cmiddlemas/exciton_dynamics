@@ -124,33 +124,45 @@ class ParameterSweep:
                  l_eigvals=np.array([]),
                  l_singvals=np.array([]),
                  l_null=[],
+                 d_null=np.array([]),
+                 cond=np.array([]),
+                 depF=np.array([]),
                  times=np.array([]),
                  expects=np.array([]),
+                 gaps=np.array([]),
                  h_instances=np.array([]),
                  c_instances=np.array([])):
         """
         Parameters:
-        G = nx.graph
-        c_op = Python list of Qobj, needs to be a list for QuTiP to work
-        sigma = np.array of \sigma/J
-        J = np.array
-        rate = np.array
-        n_samp = int
+        G = nx.graph representing connectivity graph
+        c_op = Python list of Qobj, needs to be a list for QuTiP to work,
+               represents collapse operators
+        sigma = np.array of \sigma / J
+        J = np.array of J, the coupling constant
+        rate = np.array of dissipation rates (\gamma / J)
+        n_samp = int, number of samples to take at each set of parameters
         rng = instance of rng
         spectrum = bool, do we compute spectra?
-        dynamics = (int, float), if int part is 0, skip dynamics calculations
+        dynamics = (int, float), (number of dynamics timesteps, time cutoff)
+                   if number of steps is 0, skip dynamics calculations
+                   time cutoff will be scaled by the dissipation rate
         
-        Simulation Results:
-        h_eigvals = np.array
-        l_eigvals = np.array
-        l_singvals = np.array
-        l_null = list of np.array
-        times = np.array
-        expects = np.array
+        Simulation Results: Order of array dimensions is [sigma, J, rate, samp]
+        h_eigvals = np.array of Hamiltonian eigenvalues
+        l_eigvals = np.array of Liouvillian eigenvalues
+        l_singvals = np.array of Liouvillian singular values
+        l_null = list of np.array giving bases for Liouvillian null spaces
+        d_null = np.array of dimensions of Liouvillian null spaces
+        cond = np.array of condition numbers of Liouvillian eigenvector matrix
+        depF = np.array of departures from normality in the Frobenious norm of
+               the Liouvillian
+        times = np.array of dynamics timepoints
+        expects = np.array of dynamical expectation values
+        gaps = np.array of Hamiltonian spectral gaps
 
-        Information to be able to rerun analyses:
-        h_instances = np.array
-        c_instances = np.array
+        Information for rerunning analyses:
+        h_instances = np.array of realizations of H
+        c_instances = np.array of realizations of c_op
         """
         self.G = G
         self.c_op = c_op
@@ -166,8 +178,12 @@ class ParameterSweep:
         self.l_eigvals = l_eigvals
         self.l_singvals = l_singvals
         self.l_null = l_null
+        self.d_null = d_null
+        self.cond = cond
+        self.depF = depF
         self.times = times
         self.expects = expects
+        self.gaps = gaps
         
         self.h_instances = h_instances
         self.c_instances = c_instances
@@ -203,6 +219,9 @@ class ParameterSweep:
         self.l_singvals = np.zeros((n_sigma, n_J, n_rate, n_samp*n_L),
                 dtype=np.float64)
         self.l_null = []
+        self.d_null = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=int)
+        self.cond = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.float64)
+        self.depF = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.float64)
 
         # Make some room to store realizations of H and c_ops
         self.h_instances = np.zeros((n_sigma, n_J, n_rate, n_samp, n_H, n_H),
@@ -217,6 +236,8 @@ class ParameterSweep:
             self.times = np.linspace(0.0, t_cut, t_steps)
             self.expects = np.zeros((n_sigma, n_J, n_rate, n_samp, 4, t_steps),
                     dtype=np.complex128)
+            self.gaps = np.zeros((n_sigma, n_J, n_rate, n_samp),
+                    dtype=np.float64)
 
         for i, sig in enumerate(self.sigma):
             print('sigma = ' + str(sig))
@@ -247,8 +268,9 @@ class ParameterSweep:
                             # H and c_op
                             L = qt.liouvillian(H_perturb, scaled_c_op)
                             l_matrix = L.full()
+                            l_evals, l_evecs = sp.linalg.eig(l_matrix)
                             self.l_eigvals[i, j, k, n_L*m:n_L*(m+1)] = \
-                                sp.linalg.eigvals(l_matrix)
+                                l_evals
 
                             # Compute SVD, giving steady states and measures of
                             # non-normality
@@ -258,23 +280,48 @@ class ParameterSweep:
                             # Grab null_space through same method used by
                             # sp.linalg.null_space
                             rcond = np.finfo(s.dtype).eps * l_matrix.shape[0]
-                            tol = np.amax(s) * rcond
+                            tol = s[0] * rcond
                             num = np.sum(s > tol, dtype=int)
                             NSpace = Vh[num:,:].T.conj()
                             print('null space: ' + str(NSpace.shape))
                             l_null_acc += [NSpace]
+                            self.d_null[i, j, k, m] = NSpace.shape[1]
 
                             # Compute measures of non-normality
                             # See Trefethen and Embree, Spectra and
                             # Pseudospectra, Ch. 48
+                            
+                            # First, the induced 2-norm condition number of the
+                            # eigenvector matrix
+                            cond = np.linalg.cond(l_evecs, p=2)
+                            print("cond = " + str(cond))
+                            self.cond[i, j, k, m] = cond
+
+                            # Now we compute the departure from normality
+                            # measure in the Frobenius norm, which can be
+                            # expressed entirely in terms of eigenvalues and
+                            # singular values
+                            depF = np.sqrt(np.sum(np.square(s)) -
+                                    np.sum(np.square(np.abs(l_evals))))
+                            print("depF = " + str(depF))
+                            self.depF[i, j, k, m] = depF
 
                         # Compute dynamics
                         if t_steps > 0:
-                            print('gap = ' + str(h_evals[1] - h_evals[0]))
+                            # Check assumptions on Hamiltonian spectral gap
+                            gap = h_evals[1] - h_evals[0]
+                            print('gap = ' + str(gap))
+                            if gap <= 1.0e-12:
+                                print("Found very small Hamiltonian gap!")
+                            self.gaps[i, j, k, m] = gap
+                            
+                            # Prep observables
                             l_coh = h_evecs[0] * h_evecs[1].dag()
                             r_coh = h_evecs[1] * h_evecs[0].dag()
                             p0 = h_evecs[0] * h_evecs[0].dag()
                             p1 = h_evecs[1] * h_evecs[1].dag()
+
+                            # Run a 1st excited state decay sim
                             result = qt.mesolve(H_perturb, h_evecs[1], self.times,
                                     c_ops=scaled_c_op, e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
@@ -446,8 +493,12 @@ class ParameterSweep:
                  h_eigvals=self.h_eigvals,
                  l_eigvals=self.l_eigvals,
                  l_singvals=self.l_singvals,
+                 d_null = self.d_null,
+                 cond=self.cond,
+                 depF=self.depF,
                  times=self.times,
                  expects=self.expects,
+                 gaps=self.gaps,
                  h_instances=self.h_instances,
                  c_instances=self.c_instances)
 
@@ -475,7 +526,11 @@ def param_sweep_from_file(fname, rng=np.random.default_rng()):
                           h_eigvals=raw['h_eigvals'],
                           l_eigvals=raw['l_eigvals'],
                           l_singvals=raw['l_singvals'],
+                          d_null=raw['d_null'],
+                          cond=raw['cond'],
+                          depF=raw['depF'],
                           times=raw['times'],
                           expects=raw['expects'],
+                          gaps=raw['gaps'],
                           h_instances=raw['h_instances'],
                           c_instances=raw['c_instances'])
