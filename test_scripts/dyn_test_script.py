@@ -2,6 +2,7 @@ import sys
 # https://stackoverflow.com/questions/5180215/importing-from-subdirectories-in-python
 sys.path.append('../src')
 from graphdyn import *
+from parameter_sweep import *
 import numpy as np
 from matplotlib import pyplot as plt
 import matplotlib
