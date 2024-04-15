@@ -37,6 +37,7 @@ if __name__ == '__main__':
     sweep.make_disorder_fig(fname_root='img/star')
     sweep.make_J_fig(fname_root='img/star')
     sweep.make_rate_fig(fname_root='img/star')
+    sweep.make_dynamics_fig(fname_root='img/star')
     sweep.save_file('star_save.npz')
     del sweep
 
@@ -69,6 +70,7 @@ if __name__ == '__main__':
     sweep.make_disorder_fig(fname_root='img/nn')
     sweep.make_J_fig(fname_root='img/nn')
     sweep.make_rate_fig(fname_root='img/nn')
+    sweep.make_dynamics_fig(fname_root='img/nn')
     
     sweep.save_file('nn_save.npz')
 

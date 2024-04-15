@@ -157,7 +157,10 @@ class ParameterSweep:
                 
                 for k, gamma in enumerate(self.rate):
                     print('rate = ' + str(gamma))
+                    # Scale the c_ops
                     scaled_c_op = [np.sqrt(gamma*coup)*c for c in self.c_op]
+                    # Scale the time variable
+                    scaled_times = self.times/gamma
                     l_null_acc = []
                     
                     for m in range(self.n_samp):
@@ -231,8 +234,9 @@ class ParameterSweep:
                             p1 = h_evecs[1] * h_evecs[1].dag()
 
                             # Run a 1st excited state decay sim
-                            result = qt.mesolve(H_perturb, h_evecs[1], self.times,
-                                    c_ops=scaled_c_op, e_ops=[p0,p1,l_coh,r_coh])
+                            result = qt.mesolve(H_perturb, h_evecs[1],
+                                    scaled_times, c_ops=scaled_c_op,
+                                    e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
                                 self.expects[i, j, k, m, n, :] = e
 
@@ -244,6 +248,38 @@ class ParameterSweep:
 
                     self.l_null += [l_null_acc]
 
+    def make_dynamics_fig(self, fname_root=None):
+        """
+        Plots the decay of the first excited state
+        """
+        plt.rcParams['text.usetex'] = True
+        plt.rcParams.update({'font.size': 16})
+
+        fig_list = []
+
+        for i, sig in enumerate(self.sigma):
+            for j, coup in enumerate(self.J):
+                for k, gamma in enumerate(self.rate):
+                    fig, ax = plt.subplots()
+                    scaled_times = self.times/gamma
+                    
+                    for m in range(self.n_samp):
+                        ax.plot(scaled_times,
+                                np.real(self.expects[i, j, k, m, 1, :]))
+
+                    ax = fig.axes[0]
+                    ax.set_title('Population Dynamics')
+                    ax.set_xlabel(r'$t$')
+                    ax.set_ylabel('Excited State Population')
+
+                    if fname_root is not None:
+                        fig.savefig(fname_root + '_dynamics_sigma' + str(sig) +
+                                '_J' + str(coup) + '_rate' + str(gamma) + '.png')
+                        plt.close(fig)
+                    else:
+                        fig_list += [fig]
+
+        return fig_list
 
     def make_disorder_fig(self, fname_root=None):
         """
