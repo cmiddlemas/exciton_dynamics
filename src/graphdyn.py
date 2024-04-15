@@ -16,6 +16,7 @@ import matplotlib as mpl
 import qutip as qt
 import networkx as nx
 import scipy as sp
+import gc
 
 #-------------------------------------------------------------------------------
 # Helper functions for creating Hamiltonians and collapse operators
@@ -130,7 +131,7 @@ class ParameterSweep:
         """
         Parameters:
         G = nx.graph
-        c_op = np.array of Qobj
+        c_op = Python list of Qobj, needs to be a list for QuTiP to work
         sigma = np.array of \sigma/J
         J = np.array
         rate = np.array
@@ -187,7 +188,7 @@ class ParameterSweep:
         n_J = self.J.size
         n_rate = self.rate.size
         n_samp = self.n_samp
-        n_c_op = np.atleast_1d(self.c_op).shape[0]
+        n_c_op = len(self.c_op)
 
         # for a general overview of array/list strategies see:
         # https://stackoverflow.com/questions/7133885
@@ -226,15 +227,13 @@ class ParameterSweep:
                 
                 for k, gamma in enumerate(self.rate):
                     print('rate = ' + str(gamma))
-                    scaled_c_op = np.sqrt(gamma*coup)*self.c_op
+                    scaled_c_op = [np.sqrt(gamma*coup)*c for c in self.c_op]
                     l_null_acc = []
                     
                     for m in range(self.n_samp):
+                        gc.collect()
                         H_perturb = H + diagonal_disorder(n_H-1, sig*coup,
                                 rng=self.rng)
-                        # QuTiP requires the c_ops to be in python lists,
-                        # despite the documentation sometimes stating otherwise
-                        c_op_list = np.atleast_1d(scaled_c_op).tolist()
                         
                         # Always compute Hamiltonian spectrum, because its cheap
                         # and also needed for a dynamic analysis
@@ -246,10 +245,7 @@ class ParameterSweep:
                         if self.spectrum:        
                             # Do an eigendecomposition on the Liouvillian defined by
                             # H and c_op
-                            # Need to convert c_op array into list because of
-                            # bug in QuTiP 5.0.0
-                            temp_list = np.atleast_1d(scaled_c_op).tolist()
-                            L = qt.liouvillian(H_perturb, temp_list)
+                            L = qt.liouvillian(H_perturb, scaled_c_op)
                             l_matrix = L.full()
                             self.l_eigvals[i, j, k, n_L*m:n_L*(m+1)] = \
                                 sp.linalg.eigvals(l_matrix)
@@ -269,6 +265,8 @@ class ParameterSweep:
                             l_null_acc += [NSpace]
 
                             # Compute measures of non-normality
+                            # See Trefethen and Embree, Spectra and
+                            # Pseudospectra, Ch. 48
 
                         # Compute dynamics
                         if t_steps > 0:
@@ -278,13 +276,13 @@ class ParameterSweep:
                             p0 = h_evecs[0] * h_evecs[0].dag()
                             p1 = h_evecs[1] * h_evecs[1].dag()
                             result = qt.mesolve(H_perturb, h_evecs[1], self.times,
-                                    c_ops=c_op_list, e_ops=[p0,p1,l_coh,r_coh])
+                                    c_ops=scaled_c_op, e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
                                 self.expects[i, j, k, m, n, :] = e
 
                         # Save realization of H and c_ops
                         self.h_instances[i, j, k, m, :, :] = H_perturb.full()
-                        for n, c in enumerate(np.atleast_1d(scaled_c_op)):
+                        for n, c in enumerate(scaled_c_op):
                             self.c_instances[i, j, k, m, n, :, :] = c.full()
                         
 

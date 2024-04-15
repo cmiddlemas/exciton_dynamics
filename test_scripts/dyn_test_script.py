@@ -20,14 +20,14 @@ if __name__ == '__main__':
     graph = nx.star_graph(N-1)
 
     # run collective lowering
-    c_op = np.array(collective_lowering(N))
+    c_op = [collective_lowering(N)]
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak, spectrum=False,
             dynamics=(1000,400.0), n_samp=5)
     sweep.run()
     sweep.save_file('dyn_star_save.npz')
 
     # run independent lowering
-    c_op = np.array(independent_lowering(N, 1.0))
+    c_op = independent_lowering(N, 1.0)
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak, spectrum=False,
             dynamics=(1000,400.0), n_samp=5)
     sweep.run()
@@ -35,7 +35,7 @@ if __name__ == '__main__':
 
     # nearest neighbor graph
     graph = nx.cycle_graph(N)
-    c_op = np.array(collective_lowering(N))
+    c_op = [collective_lowering(N)]
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak, spectrum=False,
             dynamics=(1000,400.0), n_samp=5)
     sweep.run()

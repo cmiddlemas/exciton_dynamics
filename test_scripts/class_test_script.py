@@ -28,7 +28,7 @@ if __name__ == '__main__':
     plt.close()
 
     # run collective lowering
-    c_op = np.array(collective_lowering(N))
+    c_op = [collective_lowering(N)]
 
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak,
             dynamics=dynamics, n_samp=n_samp)
@@ -44,7 +44,7 @@ if __name__ == '__main__':
     del reloaded
 
     # run independent lowering
-    c_op = np.array(independent_lowering(N, 1.0))
+    c_op = independent_lowering(N, 1.0)
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak,
             dynamics=dynamics, n_samp=n_samp)
     sweep.run()
@@ -58,7 +58,7 @@ if __name__ == '__main__':
     plt.savefig('img/nn.png')
     plt.close()
 
-    c_op = np.array(collective_lowering(N))
+    c_op = [collective_lowering(N)]
 
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak,
             dynamics=dynamics, n_samp=n_samp)
