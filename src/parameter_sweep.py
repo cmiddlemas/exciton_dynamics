@@ -12,6 +12,7 @@ import networkx as nx
 import scipy as sp
 import gc
 import graphdyn
+import sys
 
 class ParameterSweep:
     """
@@ -186,9 +187,20 @@ class ParameterSweep:
 
                             # Compute SVD, giving steady states and measures of
                             # non-normality
-                            U, s, Vh = sp.linalg.svd(l_matrix)
+                            try:
+                                U, s, Vh = sp.linalg.svd(l_matrix)
+                            except sp.linalg.LinAlgError:
+                                print('gessd failed, trying gesvd')
+                                try:
+                                    U, s, Vh = sp.linalg.svd(l_matrix,
+                                            lapack_driver='gesvd')
+                                except sp.linalg.LinAlgError:
+                                    print('gesvd failed, dumping matrix')
+                                    np.save('svd_dump.npy', l_matrix)
+                                    sys.exit()
+
                             self.l_singvals[i, j, k, n_L*m:n_L*(m+1)] = s
-                        
+                            
                             # Grab null_space through same method used by
                             # sp.linalg.null_space
                             rcond = np.finfo(s.dtype).eps * l_matrix.shape[0]

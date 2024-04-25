@@ -55,6 +55,13 @@ def independent_dephasing(n, sqrt_rate):
     """
     return [sqrt_rate*dephasing_L(n, i) for i in range(n)]
 
+def collective_dephasing(n):
+    """
+    Creates a collective (i.e. acting symmetrically on all sites) raising
+    operator on a network of n nodes
+    """
+    return sum([dephasing_L(n, i) for i in range(n)])/np.sqrt(n)
+
 def make_vac(array):
     """
     Takes an array representing a nxn matrix representing the Hamiltonian of the
