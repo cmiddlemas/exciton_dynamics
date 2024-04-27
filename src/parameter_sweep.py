@@ -131,7 +131,7 @@ class ParameterSweep:
         self.l_null = []
         self.d_null = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=int)
         self.cond = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.float64)
-        self.depF = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.float64)
+        self.depF = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.complex128)
 
         # Make some room to store realizations of H and c_ops
         self.h_instances = np.zeros((n_sigma, n_J, n_rate, n_samp, n_H, n_H),
@@ -225,8 +225,13 @@ class ParameterSweep:
                             # measure in the Frobenius norm, which can be
                             # expressed entirely in terms of eigenvalues and
                             # singular values
-                            depF = np.sqrt(np.sum(np.square(s)) -
+                            # Force complex to get estimate of negativity,
+                            # rather than just a NaN
+                            # https://stackoverflow.com/questions/2598734/
+                            # numpy-creating-a-complex-array-from-2-real-ones
+                            depF = np.sqrt((np.sum(np.square(s)) -
                                     np.sum(np.square(np.abs(l_evals))))
+                                    + 0.0J)
                             print("depF = " + str(depF))
                             self.depF[i, j, k, m] = depF
 
