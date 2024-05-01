@@ -30,7 +30,7 @@ if __name__ == '__main__':
     dynamics = (1000,400.0)
 
     # star graph simulations
-    graph = nx.wheel_graph(N-1)
+    graph = nx.wheel_graph(N)
     nx.draw(graph)
     plt.savefig(base_path + '.png')
     plt.close()
