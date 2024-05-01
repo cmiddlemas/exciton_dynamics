@@ -12,8 +12,8 @@ import scipy as sp
 import datetime
 
 if __name__ == '__main__':
-    data_path = '/scratch/gpfs/tm17/graphdyn/star_vsmall/'
-    base_name = 'star_vsmall'
+    data_path = '/scratch/gpfs/tm17/graphdyn/circulant12_vsmall/'
+    base_name = 'circulant12_vsmall'
     base_path = data_path + base_name
     print('Running: ' + base_name)
     
@@ -30,7 +30,7 @@ if __name__ == '__main__':
     dynamics = (1000,400.0)
 
     # star graph simulations
-    graph = nx.star_graph(N-1)
+    graph = nx.circulant_graph(N, [1,2])
     nx.draw(graph)
     plt.savefig(base_path + '.png')
     plt.close()

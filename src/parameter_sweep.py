@@ -150,14 +150,13 @@ class ParameterSweep:
                     dtype=np.float64)
 
         for i, sig in enumerate(self.sigma):
-            print('sigma = ' + str(sig))
-            
             for j, coup in enumerate(self.J):
-                print('J = ' + str(coup))
                 H = graphdyn.diagonal_H(n_H-1) - coup*C
                 
                 for k, gamma in enumerate(self.rate):
-                    print('rate = ' + str(gamma))
+                    print('sigma=' + str(sig)
+                            + ', J=' + str(coup)
+                            + ', rate=' + str(gamma))
                     # Scale the c_ops
                     scaled_c_op = [np.sqrt(gamma*coup)*c for c in self.c_op]
                     # Scale the time variable
@@ -290,8 +289,11 @@ class ParameterSweep:
                     ax.set_ylabel('Excited State Population')
 
                     if fname_root is not None:
-                        fig.savefig(fname_root + '_dynamics_sigma' + str(sig) +
-                                '_J' + str(coup) + '_rate' + str(gamma) + '.png')
+                        fig.savefig(fname_root
+                                + '_dynamics_sigma' + '{:.3g}'.format(sig)
+                                + '_J' + '{:.3g}'.format(coup)
+                                + '_rate' + '{:.3g}'.format(gamma)
+                                + '.png')
                         plt.close(fig)
                     else:
                         fig_list += [fig]
@@ -315,7 +317,7 @@ class ParameterSweep:
         for i, coup in enumerate(self.J):
             for j, gamma in enumerate(self.rate):
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
-                label=["$\sigma/J =$ " + "{:3g}".format(x) for x in self.sigma]
+                label=["$\sigma/J =$ " + "{:.3g}".format(x) for x in self.sigma]
                 # If this errors, see here
                 # https://github.com/numpy/numpy/issues/11879
                 # https://github.com/numpy/numpy/issues/10297
@@ -342,8 +344,11 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_sweepSigma'+ '_J' + str(coup) +
-                            '_rate' + str(gamma) + '.png')
+                    fig.savefig(fname_root
+                            + '_sweepSigma'
+                            + '_J' + '{:.3g}'.format(coup)
+                            + '_rate' + '{:.3g}'.format(gamma)
+                            + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]
@@ -363,7 +368,7 @@ class ParameterSweep:
         for i, sig in enumerate(self.sigma):
             for j, gamma in enumerate(self.rate):
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
-                label=["$J=$ " + "{:3g}".format(x) for x in self.J]
+                label=["$J=$ " + "{:.3g}".format(x) for x in self.J]
                 ax1.hist(self.h_eigvals[i,:,j,:].transpose(), 'auto',
                         density=True, histtype='step', label=label)
                 
@@ -384,8 +389,11 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_sweepJ' + '_sigma' + str(sig) +
-                            '_rate' + str(gamma) + '.png')
+                    fig.savefig(fname_root
+                            + '_sweepJ'
+                            + '_sigma' + '{:.3g}'.format(sig)
+                            + '_rate' + '{:.3g}'.format(gamma)
+                            + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]
@@ -405,7 +413,7 @@ class ParameterSweep:
         for i, sig in enumerate(self.sigma):
             for j, coup in enumerate(self.J):
                 fig, (ax1, ax2) = plt.subplots(2, 1, figsize= [6, 9])
-                label=["$\gamma/J =$ " + "{:3g}".format(x) for x in self.rate]
+                label=["$\gamma/J =$ " + "{:.3g}".format(x) for x in self.rate]
                 ax1.hist(self.h_eigvals[i,j,:,:].transpose(), 'auto',
                         density=True, histtype='step', label=label)
                 
@@ -426,8 +434,11 @@ class ParameterSweep:
                 fig.tight_layout()
 
                 if fname_root is not None:
-                    fig.savefig(fname_root + '_sweepRate' + '_sigma' + str(sig)
-                            + '_J' + str(coup) + '.png')
+                    fig.savefig(fname_root
+                            + '_sweepRate'
+                            + '_sigma' + '{:.3g}'.format(sig)
+                            + '_J' + '{:.3g}'.format(coup)
+                            + '.png')
                     plt.close(fig)
                 else:
                     fig_list += [fig]

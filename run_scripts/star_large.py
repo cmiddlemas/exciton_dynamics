@@ -12,8 +12,8 @@ import scipy as sp
 import datetime
 
 if __name__ == '__main__':
-    data_path = '/scratch/gpfs/tm17/graphdyn/star_vsmall/'
-    base_name = 'star_vsmall'
+    data_path = '/scratch/gpfs/tm17/graphdyn/star_large/'
+    base_name = 'star_large'
     base_path = data_path + base_name
     print('Running: ' + base_name)
     
@@ -21,7 +21,7 @@ if __name__ == '__main__':
     print(datetime.datetime.now())
     # Rate of application of lindblad operator
     leak = np.array([10.0, 1.0, 0.1])
-    N = 16 # Number of network nodes
+    N = 64 # Number of network nodes
     # Coherent coupling constant
     J = np.array([0.05, 0.005])/np.sqrt(N-1)
     # sweep over disorder strength
