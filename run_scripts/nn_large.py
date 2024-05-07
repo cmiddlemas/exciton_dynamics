@@ -12,7 +12,7 @@ import scipy as sp
 import datetime
 
 if __name__ == '__main__':
-    data_path = '/scratch/gpfs/tm17/graphdyn/nn_large/'
+    data_path = './'
     base_name = 'nn_large'
     base_path = data_path + base_name
     print('Running: ' + base_name)
@@ -20,10 +20,10 @@ if __name__ == '__main__':
     # https://stackoverflow.com/questions/415511/how-do-i-get-the-current-time-in-python
     print(datetime.datetime.now())
     # Rate of application of lindblad operator
-    leak = np.array([10.0, 1.0, 0.1])
+    leak = np.array([1.0])
     N = 64 # Number of network nodes
     # Coherent coupling constant
-    J = np.array([0.05, 0.005])/np.sqrt(N-1)
+    J = np.array([0.05])/np.sqrt(N-1)
     # sweep over disorder strength
     sigmaList = np.array([2.0, 1.5, 1.0, 0.5, 0.25, 0.05, 0.001])
     n_samp = 50
