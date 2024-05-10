@@ -30,6 +30,7 @@ class ParameterSweep:
                  rng=np.random.default_rng(),
                  spectrum=True,
                  dynamics=(0, 0.0),
+                 g_func=None,
                  h_eigvals=np.array([]),
                  l_eigvals=np.array([]),
                  l_singvals=np.array([]),
@@ -56,7 +57,10 @@ class ParameterSweep:
         dynamics = (int, float), (number of dynamics timesteps, time cutoff)
                    if number of steps is 0, skip dynamics calculations
                    time cutoff will be scaled by the dissipation rate
-        
+        g_func = None or function, if function, sample from the random graph
+                 ensemble specified by the function. The sole parameter passed
+                 to the function will be an rng.
+
         Simulation Results: Order of array dimensions is [sigma, J, rate, samp]
         h_eigvals = np.array of Hamiltonian eigenvalues
         l_eigvals = np.array of Liouvillian eigenvalues
@@ -83,7 +87,8 @@ class ParameterSweep:
         self.rng = rng
         self.spectrum = spectrum
         self.dynamics = dynamics
-        
+        self.g_func = g_func
+
         self.h_eigvals = h_eigvals
         self.l_eigvals = l_eigvals
         self.l_singvals = l_singvals
@@ -94,7 +99,7 @@ class ParameterSweep:
         self.times = times
         self.expects = expects
         self.gaps = gaps
-        
+
         self.h_instances = h_instances
         self.c_instances = c_instances
 
@@ -152,7 +157,7 @@ class ParameterSweep:
         for i, sig in enumerate(self.sigma):
             for j, coup in enumerate(self.J):
                 H = graphdyn.diagonal_H(n_H-1) - coup*C
-                
+
                 for k, gamma in enumerate(self.rate):
                     print('sigma=' + str(sig)
                             + ', J=' + str(coup)
@@ -162,15 +167,23 @@ class ParameterSweep:
                     # Scale the time variable
                     scaled_times = self.times/gamma
                     l_null_acc = []
-                    
+
                     for m in range(self.n_samp):
                         gc.collect()
-                        H_perturb = H + graphdyn.diagonal_disorder(n_H-1,
-                                sig*coup, rng=self.rng)
-                        
+
+                        if self.g_func is None:
+                            # Disorder from diagonal perturbation
+                            H_samp = H + graphdyn.diagonal_disorder(n_H-1,
+                                    sig*coup, rng=self.rng)
+                        else:
+                            # Disorder from random graph ensemble
+                            rand_g = self.g_func(self.rng)
+                            rand_c = graphdyn.make_coupling_H(rand_g)
+                            H_samp = graphdyn.diagonal_H(n_H-1) - coup*rand_c
+
                         # Always compute Hamiltonian spectrum, because its cheap
                         # and also needed for a dynamic analysis
-                        h_evals, h_evecs = H_perturb.eigenstates()
+                        h_evals, h_evecs = H_samp.eigenstates()
                         self.h_eigvals[i, j, k, n_H*m:n_H*(m+1)] = \
                                 h_evals
 
@@ -178,7 +191,7 @@ class ParameterSweep:
                         if self.spectrum:        
                             # Do an eigendecomposition on the Liouvillian defined by
                             # H and c_op
-                            L = qt.liouvillian(H_perturb, scaled_c_op)
+                            L = qt.liouvillian(H_samp, scaled_c_op)
                             l_matrix = L.full()
                             l_evals, l_evecs = sp.linalg.eig(l_matrix)
                             self.l_eigvals[i, j, k, n_L*m:n_L*(m+1)] = \
@@ -199,7 +212,7 @@ class ParameterSweep:
                                     sys.exit()
 
                             self.l_singvals[i, j, k, n_L*m:n_L*(m+1)] = s
-                            
+
                             # Grab null_space through same method used by
                             # sp.linalg.null_space
                             rcond = np.finfo(s.dtype).eps * l_matrix.shape[0]
@@ -213,7 +226,7 @@ class ParameterSweep:
                             # Compute measures of non-normality
                             # See Trefethen and Embree, Spectra and
                             # Pseudospectra, Ch. 48
-                            
+
                             # First, the induced 2-norm condition number of the
                             # eigenvector matrix
                             cond = np.linalg.cond(l_evecs, p=2)
@@ -242,7 +255,7 @@ class ParameterSweep:
                             if gap <= 1.0e-12:
                                 print("Found very small Hamiltonian gap!")
                             self.gaps[i, j, k, m] = gap
-                            
+
                             # Prep observables
                             l_coh = h_evecs[0] * h_evecs[1].dag()
                             r_coh = h_evecs[1] * h_evecs[0].dag()
@@ -250,17 +263,16 @@ class ParameterSweep:
                             p1 = h_evecs[1] * h_evecs[1].dag()
 
                             # Run a 1st excited state decay sim
-                            result = qt.mesolve(H_perturb, h_evecs[1],
+                            result = qt.mesolve(H_samp, h_evecs[1],
                                     scaled_times, c_ops=scaled_c_op,
                                     e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
                                 self.expects[i, j, k, m, n, :] = e
 
                         # Save realization of H and c_ops
-                        self.h_instances[i, j, k, m, :, :] = H_perturb.full()
+                        self.h_instances[i, j, k, m, :, :] = H_samp.full()
                         for n, c in enumerate(scaled_c_op):
                             self.c_instances[i, j, k, m, n, :, :] = c.full()
-                        
 
                     self.l_null += [l_null_acc]
 
@@ -278,7 +290,7 @@ class ParameterSweep:
                 for k, gamma in enumerate(self.rate):
                     fig, ax = plt.subplots()
                     scaled_times = self.times/gamma
-                    
+
                     for m in range(self.n_samp):
                         ax.plot(scaled_times,
                                 np.real(self.expects[i, j, k, m, 1, :]))
@@ -371,7 +383,7 @@ class ParameterSweep:
                 label=["$J=$ " + "{:.3g}".format(x) for x in self.J]
                 ax1.hist(self.h_eigvals[i,:,j,:].transpose(), 'auto',
                         density=True, histtype='step', label=label)
-                
+
                 ax1.relim()
                 ax1.autoscale_view()
 
@@ -416,7 +428,7 @@ class ParameterSweep:
                 label=["$\gamma/J =$ " + "{:.3g}".format(x) for x in self.rate]
                 ax1.hist(self.h_eigvals[i,j,:,:].transpose(), 'auto',
                         density=True, histtype='step', label=label)
-                
+
                 ax1.relim()
                 ax1.autoscale_view()
 
@@ -449,8 +461,8 @@ class ParameterSweep:
     def save_file(self, fname):
         """
         Saves a binary representation of the instance to a .pyz file. Keeps all
-        information except rng and l_null, which cannot be saved in array
-        format.
+        information except rng, spectrum, g_func, and l_null, which either
+        cannot be saved in array format or are not worth saving.
         """
         G_arr = nx.to_numpy_array(self.G)
         c_op_arr = np.array([c.full() for c in np.atleast_1d(self.c_op)])
@@ -475,7 +487,6 @@ class ParameterSweep:
                  h_instances=self.h_instances,
                  c_instances=self.c_instances)
 
-        
 
 def param_sweep_from_file(fname, rng=np.random.default_rng()):
     """
@@ -487,7 +498,7 @@ def param_sweep_from_file(fname, rng=np.random.default_rng()):
     G = nx.from_numpy_array(raw['G'])
     c_op = np.array([qt.Qobj(c) for c in raw['c_op']])
     dr = raw['dynamics']
-    
+
     return ParameterSweep(G,
                           c_op,
                           sigma=raw['sigma'],
