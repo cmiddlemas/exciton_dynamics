@@ -566,7 +566,7 @@ class ParameterSweep:
                  h_eigvals=self.h_eigvals,
                  l_eigvals=self.l_eigvals,
                  l_singvals=self.l_singvals,
-                 d_null = self.d_null,
+                 d_null=self.d_null,
                  cond=self.cond,
                  depF=self.depF,
                  times=self.times,
