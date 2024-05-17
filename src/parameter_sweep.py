@@ -31,6 +31,8 @@ class ParameterSweep:
                  spectrum=True,
                  dynamics=(0, 0.0),
                  g_func=None,
+                 disorder_type='diagonal',
+                 save_L=True,
                  h_eigvals=np.array([]),
                  l_eigvals=np.array([]),
                  l_singvals=np.array([]),
@@ -60,6 +62,15 @@ class ParameterSweep:
         g_func = None or function, if function, sample from the random graph
                  ensemble specified by the function. The sole parameter passed
                  to the function will be an rng.
+        disorder_type = string, 'diagonal' for perturbing exciton-GS gap,
+                        'coherent-gue' and 'coherent-goe' for perturbing
+                        Hamiltonian in 1-exc subspace using appropriate random
+                        matrix ensemble, 'dephase-gue' and 'dephase-goe' for
+                        adding a Lindblad operator in 1-exc subspace, and
+                        'loss-gue' and 'loss-goe' for adding a Lindblad operator
+                        in the 0-1-exc subspace, and 'read' to take the data
+                        from self.h_instances and self.c_instances
+        save_L = bool, do we save each sampled Hamiltonian and list of c_ops?
 
         Simulation Results: Order of array dimensions is [sigma, J, rate, samp]
         h_eigvals = np.array of Hamiltonian eigenvalues
@@ -88,6 +99,8 @@ class ParameterSweep:
         self.spectrum = spectrum
         self.dynamics = dynamics
         self.g_func = g_func
+        self.disorder_type = disorder_type
+        self.save_L = save_L
 
         self.h_eigvals = h_eigvals
         self.l_eigvals = l_eigvals
@@ -103,11 +116,86 @@ class ParameterSweep:
         self.h_instances = h_instances
         self.c_instances = c_instances
 
+    def random_sample(self, H, fixed_c_op, sig, coup, gamma, i, j, k, m):
+        n_H = H.shape[0]
+
+        if self.g_func is None:
+            match self.disorder_type:
+                case 'diagonal':
+                    # Disorder from diagonal perturbation
+                    perturb = graphdyn.diagonal_disorder(n_H-1, sig*coup,
+                            rng=self.rng)
+                    return H + perturb, []
+
+                case 'coherent-gue':
+                    # Add to the Hamiltonian a matrix drawn from
+                    # the GUE in the 1-exc subspace
+                    perturb = qt.Qobj(graphdyn.make_vac(
+                            graphdyn.gue_matrix(n_H-1, sig*coup, rng=self.rng)))
+                    return H + perturb, []
+
+                case 'coherent-goe':
+                    # Add to the Hamiltonian a matrix drawn from
+                    # the GOE in the 1-exc subspace
+                    perturb = qt.Qobj(graphdyn.make_vac(
+                            graphdyn.goe_matrix(n_H-1, sig*coup, rng=self.rng)))
+                    return H + perturb, []
+
+                case 'dephase-gue':
+                    # Add to the c_op list a matrix drawn from the GUE in the
+                    # 1-exc subspace
+                    s_rate = np.sqrt(sig*coup*gamma)
+                    c_op = qt.Qobj(graphdyn.make_vac(
+                            graphdyn.gue_matrix(n_H-1, s_rate, rng=self.rng)))
+                    return H, [c_op] + fixed_c_op
+
+                case 'dephase-goe':
+                    # Add to the c_op list a matrix drawn from the GOE in the
+                    # 1-exc subspace
+                    s_rate = np.sqrt(sig*coup*gamma)
+                    c_op = qt.Qobj(graphdyn.make_vac(
+                            graphdyn.goe_matrix(n_H-1, s_rate, rng=self.rng)))
+                    return H, [c_op] + fixed_c_op
+
+                case 'loss-gue':
+                    # Add to the c_op list a matrix drawn from the GUE in the
+                    # 1-exc subspace
+                    s_rate = np.sqrt(sig*coup*gamma)
+                    c_op = qt.Qobj(
+                            graphdyn.gue_matrix(n_H, s_rate, rng=self.rng))
+                    return H, [c_op] + fixed_c_op
+
+                case 'loss-goe':
+                    # Add to the c_op list a matrix drawn from the GOE in the
+                    # 1-exc subspace
+                    s_rate = np.sqrt(sig*coup*gamma)
+                    c_op = qt.Qobj(
+                            graphdyn.goe_matrix(n_H, s_rate, rng=self.rng))
+                    return H, [c_op] + fixed_c_op
+
+                case 'read':
+                    # Read the Hamiltonians out of h_instances and the c_ops out
+                    # of c_instances
+                    H_samp = qt.Qobj(h_instances[i, j, k, m, :, :])
+                    c_op_samp = [qt.Qobj(c_op) for c_op in c_instances[i, j, k,
+                            m, :, :, :]]
+                    return H_samp, c_op_samp
+
+                case _:
+                    raise Exception('Invalid disorder_type')
+
+        else:
+            # Disorder from random graph ensemble
+            rand_g = self.g_func(self.rng)
+            rand_c = graphdyn.make_coupling_H(rand_g)
+            H_samp = graphdyn.diagonal_H(n_H-1) - coup*rand_c
+            return H_samp, []
+
+
     def run(self):
         """
-        Will sweep through all parameters for
-        H = diag - J*C + disorder
-        c_op = rate*c_op
+        Will sweep through all parameters for disorder, coherent coupling
+        constant, and incoherent rate
         """
         # Make coupling matrix
         C = graphdyn.make_coupling_H(self.G)
@@ -119,7 +207,11 @@ class ParameterSweep:
         n_J = self.J.size
         n_rate = self.rate.size
         n_samp = self.n_samp
-        n_c_op = len(self.c_op)
+        match self.disorder_type:
+            case 'dephase-gue' | 'dephase-goe' | 'loss-gue' | 'loss-goe':
+                n_c_op = len(self.c_op) + 1
+            case _:
+                n_c_op = len(self.c_op)
 
         # for a general overview of array/list strategies see:
         # https://stackoverflow.com/questions/7133885
@@ -139,10 +231,13 @@ class ParameterSweep:
         self.depF = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.complex128)
 
         # Make some room to store realizations of H and c_ops
-        self.h_instances = np.zeros((n_sigma, n_J, n_rate, n_samp, n_H, n_H),
-                dtype=np.complex128)
-        self.c_instances = np.zeros((n_sigma, n_J, n_rate,
-                n_samp, n_c_op, n_H, n_H), dtype=np.complex128)
+        if self.save_L:
+            self.h_instances = np.zeros(
+                    (n_sigma, n_J, n_rate, n_samp, n_H, n_H),
+                    dtype=np.complex128)
+            self.c_instances = np.zeros(
+                    (n_sigma, n_J, n_rate, n_samp, n_c_op, n_H, n_H),
+                    dtype=np.complex128)
 
         # Prep times array if we are running dynamics
         t_steps = self.dynamics[0]
@@ -169,17 +264,11 @@ class ParameterSweep:
                     l_null_acc = []
 
                     for m in range(self.n_samp):
-                        gc.collect()
+                        gc.collect() # Ensure memory usage stays tight
 
-                        if self.g_func is None:
-                            # Disorder from diagonal perturbation
-                            H_samp = H + graphdyn.diagonal_disorder(n_H-1,
-                                    sig*coup, rng=self.rng)
-                        else:
-                            # Disorder from random graph ensemble
-                            rand_g = self.g_func(self.rng)
-                            rand_c = graphdyn.make_coupling_H(rand_g)
-                            H_samp = graphdyn.diagonal_H(n_H-1) - coup*rand_c
+                        # Add randomness
+                        H_samp, c_op_samp = self.random_sample(H, scaled_c_op,
+                                sig, coup, gamma, i, j, k, m)
 
                         # Always compute Hamiltonian spectrum, because its cheap
                         # and also needed for a dynamic analysis
@@ -191,7 +280,7 @@ class ParameterSweep:
                         if self.spectrum:        
                             # Do an eigendecomposition on the Liouvillian defined by
                             # H and c_op
-                            L = qt.liouvillian(H_samp, scaled_c_op)
+                            L = qt.liouvillian(H_samp, c_op_samp)
                             l_matrix = L.full()
                             l_evals, l_evecs = sp.linalg.eig(l_matrix)
                             self.l_eigvals[i, j, k, n_L*m:n_L*(m+1)] = \
@@ -209,7 +298,8 @@ class ParameterSweep:
                                 except sp.linalg.LinAlgError:
                                     print('gesvd failed, dumping matrix')
                                     np.save('svd_dump.npy', l_matrix)
-                                    sys.exit()
+                                    raise Exception(
+                                            'Failed both svd algorithms')
 
                             self.l_singvals[i, j, k, n_L*m:n_L*(m+1)] = s
 
@@ -264,15 +354,16 @@ class ParameterSweep:
 
                             # Run a 1st excited state decay sim
                             result = qt.mesolve(H_samp, h_evecs[1],
-                                    scaled_times, c_ops=scaled_c_op,
+                                    scaled_times, c_ops=c_op_samp,
                                     e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
                                 self.expects[i, j, k, m, n, :] = e
 
                         # Save realization of H and c_ops
-                        self.h_instances[i, j, k, m, :, :] = H_samp.full()
-                        for n, c in enumerate(scaled_c_op):
-                            self.c_instances[i, j, k, m, n, :, :] = c.full()
+                        if self.save_L:
+                            self.h_instances[i, j, k, m, :, :] = H_samp.full()
+                            for n, c in enumerate(c_op_samp):
+                                self.c_instances[i, j, k, m, n, :, :] = c.full()
 
                     self.l_null += [l_null_acc]
 
@@ -461,8 +552,9 @@ class ParameterSweep:
     def save_file(self, fname):
         """
         Saves a binary representation of the instance to a .pyz file. Keeps all
-        information except rng, spectrum, g_func, and l_null, which either
-        cannot be saved in array format or are not worth saving.
+        information except rng, spectrum, g_func, disorder_type, save_L, and
+        l_null, which either cannot be saved in array format or are not worth
+        saving.
         """
         G_arr = nx.to_numpy_array(self.G)
         c_op_arr = np.array([c.full() for c in np.atleast_1d(self.c_op)])
@@ -507,6 +599,8 @@ def param_sweep_from_file(fname, rng=np.random.default_rng()):
                           n_samp=raw['n_samp'].item(),
                           rng=rng,
                           dynamics=(int(dr[0]),dr[1]),
+                          disorder_type='read',
+                          save_L=False,
                           h_eigvals=raw['h_eigvals'],
                           l_eigvals=raw['l_eigvals'],
                           l_singvals=raw['l_singvals'],

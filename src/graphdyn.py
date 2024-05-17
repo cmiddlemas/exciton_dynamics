@@ -99,3 +99,24 @@ def diagonal_disorder(n, sigma, rng=np.random.default_rng()):
     diag = rng.normal(0.0, sigma, n+1)
     diag[-1] = 0.0
     return(qt.Qobj(np.diag(diag)))
+
+# For an explanation of the following ensembles, see
+# https://medium.com/@natsunoyuki/random-matrix-theory-34bbc5673881
+# A. Edelman and N. R. Rao, Acta Numerica (2005)
+# T. Tao, Topics in random matrix theory (preprint, published 2012)
+def gue_matrix(n, sigma, rng=np.random.default_rng()):
+    """
+    Returns a matrix drawn from the gaussian unitary ensemble scaled to diagonal
+    distribution N(0, sigma)R.
+    """
+    A = (rng.normal(0.0, sigma, size=(n,n))
+         + 1.0j*rng.normal(0.0, sigma, size=(n,n)))
+    return 0.5 * (A + A.T.conj())
+
+def goe_matrix(n, sigma, rng=np.random.default_rng()):
+    """
+    Returns a matrix drawn from the gaussian orthogonal ensemble scaled to
+    diagonal distribution N(0, sigma)R.
+    """
+    A = rng.normal(0.0, sigma, size=(n,n))
+    return 0.5 * (A + A.T)
