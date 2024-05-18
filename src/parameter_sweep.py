@@ -6,7 +6,6 @@ Provides a ParameterSweep class to structure exploring numerical parameters
 """
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib as mpl
 import qutip as qt
 import networkx as nx
 import scipy as sp
