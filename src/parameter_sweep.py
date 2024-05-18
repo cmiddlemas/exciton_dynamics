@@ -180,9 +180,9 @@ class ParameterSweep:
                 case 'read':
                     # Read the Hamiltonians out of h_instances and the c_ops out
                     # of c_instances
-                    H_samp = qt.Qobj(h_instances[i, j, k, m, :, :])
-                    c_op_samp = [qt.Qobj(c_op) for c_op in c_instances[i, j, k,
-                            m, :, :, :]]
+                    H_samp = qt.Qobj(self.h_instances[i, j, k, m, :, :])
+                    c_op_samp = [qt.Qobj(c_op) for c_op in self.c_instances[i,
+                            j, k, m, :, :, :]]
                     return H_samp, c_op_samp
 
                 case _:
