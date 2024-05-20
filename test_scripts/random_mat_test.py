@@ -31,7 +31,6 @@ if __name__ == '__main__':
     # base c_op is collective lowering
     c_op = [collective_lowering(N)]
     
-    """
     # run diagonal disorder
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak,
             disorder_type='diagonal', n_samp=n_samp)
@@ -58,7 +57,6 @@ if __name__ == '__main__':
     sweep.make_rate_fig(fname_root=base_file+'_cgoe')
     sweep.save_file('dtype_cgoe.npz')
     del sweep
-    """
     
     # run dephase-gue
     sweep = ParameterSweep(graph, c_op, sigmaList, J, leak,
