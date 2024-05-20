@@ -128,21 +128,21 @@ class ParameterSweep:
                     # Disorder from diagonal perturbation
                     perturb = graphdyn.diagonal_disorder(n_H-1, sig*coup,
                             rng=self.rng)
-                    return H + perturb, []
+                    return H + perturb, fixed_c_op
 
                 case 'coherent-gue':
                     # Add to the Hamiltonian a matrix drawn from
                     # the GUE in the 1-exc subspace
                     perturb = qt.Qobj(graphdyn.make_vac(
                             graphdyn.gue_matrix(n_H-1, sig*coup, rng=self.rng)))
-                    return H + perturb, []
+                    return H + perturb, fixed_c_op
 
                 case 'coherent-goe':
                     # Add to the Hamiltonian a matrix drawn from
                     # the GOE in the 1-exc subspace
                     perturb = qt.Qobj(graphdyn.make_vac(
                             graphdyn.goe_matrix(n_H-1, sig*coup, rng=self.rng)))
-                    return H + perturb, []
+                    return H + perturb, fixed_c_op
 
                 case 'dephase-gue':
                     # Add to the c_op list a matrix drawn from the GUE in the
