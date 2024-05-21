@@ -17,17 +17,14 @@ if __name__ == '__main__':
     
     base_path = 'img/split'
 
-    # reload the simulation and delete the old results
+    # reload the simulation
     reloaded = param_sweep_from_file(base_path + '.npz')
     reloaded.disorder_type = 'read_L'
     reloaded.L_root = 'L_data/split'
-    reloaded.h_eigvals = np.array([])
-    reloaded.l_eigvals = np.array([])
-    reloaded.expects = np.array([])
-    # Double the dynamical simulation length
+    # Set the dynamical simulation length
     dynamics2 = (2000,800.0)
     reloaded.dynamics = dynamics2
-    # Rerun the simulation, using the old samples of H and c_ops
+    # Run the simulation, using the precomputed Liouvillians
     reloaded.run()
     reloaded.make_disorder_fig(fname_root=base_path+'2')
     reloaded.make_dynamics_fig(fname_root=base_path+'2')
