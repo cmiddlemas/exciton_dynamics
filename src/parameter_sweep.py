@@ -31,7 +31,8 @@ class ParameterSweep:
                  dynamics=(0, 0.0),
                  g_func=None,
                  disorder_type='diagonal',
-                 save_L=True,
+                 save_L='partial',
+                 L_root='',
                  h_eigvals=np.array([]),
                  l_eigvals=np.array([]),
                  l_singvals=np.array([]),
@@ -67,9 +68,14 @@ class ParameterSweep:
                         matrix ensemble, 'dephase-gue' and 'dephase-goe' for
                         adding a Lindblad operator in 1-exc subspace, and
                         'loss-gue' and 'loss-goe' for adding a Lindblad operator
-                        in the 0-1-exc subspace, and 'read' to take the data
-                        from self.h_instances and self.c_instances
-        save_L = bool, do we save each sampled Hamiltonian and list of c_ops?
+                        in the 0-1-exc subspace, 'read_H' to take the data from
+                        self.h_instances and self.c_instances, and 'read_L' to
+                        take the data from the L files
+        save_L = string, 'none' saves nothing, 'partial' saves H and c_ops,
+                 and 'full' saves H and c_ops, as well as L to files with base
+                 path given by L_path
+        L_root = string, specifies the path and basename used by
+                 disorder_type='read_L'
 
         Simulation Results: Order of array dimensions is [sigma, J, rate, samp]
         h_eigvals = np.array of Hamiltonian eigenvalues
@@ -100,6 +106,7 @@ class ParameterSweep:
         self.g_func = g_func
         self.disorder_type = disorder_type
         self.save_L = save_L
+        self.L_root = L_root
 
         self.h_eigvals = h_eigvals
         self.l_eigvals = l_eigvals
@@ -176,7 +183,7 @@ class ParameterSweep:
                             graphdyn.goe_matrix(n_H, s_rate, rng=self.rng))
                     return H, [c_op] + fixed_c_op
 
-                case 'read':
+                case 'read_H' | 'read_L':
                     # Read the Hamiltonians out of h_instances and the c_ops out
                     # of c_instances
                     H_samp = qt.Qobj(self.h_instances[i, j, k, m, :, :])
@@ -234,13 +241,14 @@ class ParameterSweep:
         self.depF = np.zeros((n_sigma, n_J, n_rate, n_samp), dtype=np.complex128)
 
         # Make some room to store realizations of H and c_ops
-        if self.save_L:
-            self.h_instances = np.zeros(
-                    (n_sigma, n_J, n_rate, n_samp, n_H, n_H),
-                    dtype=np.complex128)
-            self.c_instances = np.zeros(
-                    (n_sigma, n_J, n_rate, n_samp, n_c_op, n_H, n_H),
-                    dtype=np.complex128)
+        match self.save_L:
+            case 'partial' | 'full':
+                self.h_instances = np.zeros(
+                        (n_sigma, n_J, n_rate, n_samp, n_H, n_H),
+                        dtype=np.complex128)
+                self.c_instances = np.zeros(
+                        (n_sigma, n_J, n_rate, n_samp, n_c_op, n_H, n_H),
+                        dtype=np.complex128)
 
         # Prep times array if we are running dynamics
         t_steps = self.dynamics[0]
@@ -279,12 +287,21 @@ class ParameterSweep:
                         self.h_eigvals[i, j, k, n_H*m:n_H*(m+1)] = \
                                 h_evals
 
+                        # Construct L
+                        if self.disorder_type == 'read_L':
+                            l_matrix = np.load(self.L_root + '_' + str(i) + '_'
+                                    + str(j) + '_' + str(k) + '_' + str(m) +
+                                    '.npy')
+                            L = qt.Qobj(l_matrix, dims=[[[n_H], [n_H]], [[n_H],
+                                [n_H]]], superrep='super')
+                        else:
+                            L = qt.liouvillian(H_samp, c_op_samp)
+                            l_matrix = L.full()
+
                         # Compute eigendecompositions and SVD
                         if self.spectrum:        
                             # Do an eigendecomposition on the Liouvillian defined by
                             # H and c_op
-                            L = qt.liouvillian(H_samp, c_op_samp)
-                            l_matrix = L.full()
                             l_evals, l_evecs = sp.linalg.eig(l_matrix)
                             self.l_eigvals[i, j, k, n_L*m:n_L*(m+1)] = \
                                 l_evals
@@ -356,17 +373,21 @@ class ParameterSweep:
                             p1 = h_evecs[1] * h_evecs[1].dag()
 
                             # Run a 1st excited state decay sim
-                            result = qt.mesolve(H_samp, h_evecs[1],
-                                    scaled_times, c_ops=c_op_samp,
+                            result = qt.mesolve(L, h_evecs[1], scaled_times,
                                     e_ops=[p0,p1,l_coh,r_coh])
                             for n, e in enumerate(result.expect):
                                 self.expects[i, j, k, m, n, :] = e
 
-                        # Save realization of H and c_ops
-                        if self.save_L:
-                            self.h_instances[i, j, k, m, :, :] = H_samp.full()
-                            for n, c in enumerate(c_op_samp):
-                                self.c_instances[i, j, k, m, n, :, :] = c.full()
+                        # Save realizations of H, c_ops, and L
+                        match self.save_L:
+                            case 'partial' | 'full':
+                                self.h_instances[i, j, k, m, :, :] = H_samp.full()
+                                for n, c in enumerate(c_op_samp):
+                                    self.c_instances[i, j, k, m, n, :, :] = c.full()
+                                if self.save_L == 'full':
+                                    np.save(self.L_root + '_' + str(i) + '_' +
+                                            str(j) + '_' + str(k) + '_' +
+                                            str(m) + '.npy', l_matrix)
 
                     self.l_null += [l_null_acc]
 
@@ -547,9 +568,9 @@ class ParameterSweep:
     def save_file(self, fname):
         """
         Saves a binary representation of the instance to a .pyz file. Keeps all
-        information except rng, spectrum, g_func, disorder_type, save_L, and
-        l_null, which either cannot be saved in array format or are not worth
-        saving.
+        information except rng, spectrum, g_func, disorder_type, save_L, L_root,
+        and l_null, which either cannot be saved in array format or are not
+        worth saving.
         """
         G_arr = nx.to_numpy_array(self.G)
         c_op_arr = np.array([c.full() for c in np.atleast_1d(self.c_op)])
@@ -594,8 +615,8 @@ def param_sweep_from_file(fname, rng=np.random.default_rng()):
                           n_samp=raw['n_samp'].item(),
                           rng=rng,
                           dynamics=(int(dr[0]),dr[1]),
-                          disorder_type='read',
-                          save_L=False,
+                          disorder_type='read_H',
+                          save_L='none',
                           h_eigvals=raw['h_eigvals'],
                           l_eigvals=raw['l_eigvals'],
                           l_singvals=raw['l_singvals'],
