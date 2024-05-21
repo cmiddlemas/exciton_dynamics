@@ -1,19 +1,27 @@
 import sys
+import os
 # https://stackoverflow.com/questions/5180215/importing-from-subdirectories-in-python
-sys.path.append('../src')
+source_path = '../src'
+sys.path.append(source_path)
+
 from graphdyn import *
 from parameter_sweep import *
 import numpy as np
 from matplotlib import pyplot as plt
-import matplotlib
-import qutip as qt
 import networkx as nx
-import scipy as sp
 import datetime
+
 
 if __name__ == '__main__':
     # https://stackoverflow.com/questions/415511/how-do-i-get-the-current-time-in-python
     print(datetime.datetime.now())
+    # Print source code version details
+    sim_path = os.getcwd()
+    os.chdir(source_path)
+    os.system('git log | head -n 3')
+    os.system('git status')
+    os.chdir(sim_path)
+
     leak = np.array([1.0]) # Rate of application of lindblad operator
     N = 64 # Number of network nodes
     J = np.array([0.05]) # Coherent coupling constant
