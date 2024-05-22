@@ -199,7 +199,7 @@ class ParameterSweep:
             rand_g = self.g_func(self.rng)
             rand_c = graphdyn.make_coupling_H(rand_g)
             H_samp = graphdyn.diagonal_H(n_H-1) - coup*rand_c
-            return H_samp, []
+            return H_samp, fixed_c_op
 
 
     def run(self):
