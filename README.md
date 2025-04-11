@@ -1,6 +1,7 @@
 # exciton_dynamics
 A package to compute Lindblad spectra and long-lived dynamics of exciton-like systems
-with varying connection topologies.
+with varying connection topologies. Developed during my time at Princeton University
+in the Scholes Group.
 
 Examples of use can be found in test_scripts and run_scripts. To use a newer
 runscript, move it to the data folder (or somewhere else on the filesystem) and
